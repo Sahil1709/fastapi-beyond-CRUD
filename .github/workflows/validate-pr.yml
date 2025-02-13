@@ -1,0 +1,116 @@
+name: Validate PR commit messages
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  verify-commits:
+    runs-on: ubuntu-latest
+
+    env:
+      MAIL_USERNAME: ${{ secrets.MAIL_USERNAME }}
+      MAIL_PASSWORD: ${{ secrets.MAIL_PASSWORD }}
+      MAIL_FROM: ${{ secrets.MAIL_FROM }}
+      MAIL_SERVER: ${{ secrets.MAIL_SERVER }}
+      MAIL_FROM_NAME: ${{ secrets.MAIL_FROM_NAME }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Verify Conventional Commits in PR
+        id: commitlint
+        run: |
+          BASE_BRANCH="${{ github.event.pull_request.base.ref }}"
+          echo "Base branch is: $BASE_BRANCH"
+          
+          COMMITS=$(git log origin/${BASE_BRANCH}..HEAD --pretty=format:"%s")
+          echo "Commits in PR:"
+          echo "$COMMITS"
+          
+          REGEX='^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\([^)]+\))?: .+'
+          
+          NON_CC=""
+          while IFS= read -r line; do
+            if [[ ! $line =~ $REGEX ]]; then
+              NON_CC+="$line"$'\n'
+            fi
+          done <<< "$COMMITS"
+          
+          if [ -n "$NON_CC" ]; then
+            echo "The following commit messages do not follow Conventional Commits guidelines:"
+            echo "$NON_CC"
+            echo "::set-output name=lint_status::fail"
+          else
+            echo "All commit messages follow Conventional Commit guidelines."
+            echo "::set-output name=lint_status::pass"
+          fi
+        shell: bash
+
+      - name: Comment, Close PR, and Notify via Email
+        if: steps.commitlint.outputs.lint_status == 'fail'
+        run: |
+          PR_NUMBER="${{ github.event.pull_request.number }}"
+          echo "PR number: $PR_NUMBER"
+          
+          AUTHOR_EMAIL=$(jq -r ".pull_request.user.email" "$GITHUB_EVENT_PATH")
+          if [ "$AUTHOR_EMAIL" = "null" ] || [ -z "$AUTHOR_EMAIL" ]; then
+            AUTHOR_EMAIL="sgupta54@dons.usfca.edu"
+          fi
+          echo "PR author email: $AUTHOR_EMAIL"
+          
+          COMMENT_BODY="""
+            :warning: **PR Closed:** Your pull request contains commit messages that do not follow the Conventional Commits specification.
+            
+            Please update your commit messages to follow the format:
+            \`<type>(<scope>): <description>\`
+            Allowed types: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert.
+          """
+          
+          curl -L \
+            -X POST \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            -H "Content-Type: application/json" \
+            https://api.github.com/repos/${{ github.repository }}/pulls/${PR_NUMBER}/comments \
+            -d "{\"body\": \"${COMMENT_BODY}\"}"
+          
+          curl -L \
+            -X PATCH \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            -H "Content-Type: application/json" \
+            https://api.github.com/repos/${{ github.repository }}/pulls/${PR_NUMBER} \
+            -d "{\"state\": \"closed\"}"
+
+          
+          echo "PR closed. Sending email notification using FastMail..."
+          
+          pip install --upgrade pip
+          pip install -r requirements.txt
+          
+          cat << 'EOF' > send_email.py
+          import sys
+          from asgiref.sync import async_to_sync
+          from src.mail import mail, create_message
+          
+          def main():
+              recipient = sys.argv[1] if len(sys.argv) > 1 else "sgupta54@dons.usfca.edu"
+              subject = "PR Closed - Conventional Commit Violation"
+              body = ("Your pull request was closed because some commit messages do not follow "
+                      "the Conventional Commits specification. Please update your commit messages and try again.")
+              message = create_message([recipient], subject, body)
+              async_to_sync(mail.send_message)(message)
+              print("Email sent to", recipient)
+          
+          if __name__ == '__main__':
+              main()
+          EOF
+          
+          python send_email.py "$AUTHOR_EMAIL"
+        shell: bash
