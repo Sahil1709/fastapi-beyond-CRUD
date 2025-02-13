@@ -4,6 +4,12 @@ on:
   pull_request:
     types: [opened, synchronize, reopened]
 
+
+permissions:
+  issues: write
+  pull-requests: write
+
+
 jobs:
   verify-commits:
     runs-on: ubuntu-latest
@@ -58,7 +64,7 @@ jobs:
           fi
         shell: bash
 
-      - name: Comment, Close PR, and Notify via Email
+      - name: Comment and Close PR
         if: steps.commitlint.outputs.lint_status == 'fail'
         run: |
           PR_NUMBER="${{ github.event.pull_request.number }}"
@@ -84,7 +90,7 @@ jobs:
             -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
             -H "X-GitHub-Api-Version: 2022-11-28" \
             -H "Content-Type: application/json" \
-            https://api.github.com/repos/${{ github.repository }}/pulls/${PR_NUMBER}/comments \
+            https://api.github.com/repos/${{ github.repository }}/issues/${PR_NUMBER}/comments \
             -d "{\"body\": \"${COMMENT_BODY}\"}"
           
           curl -L \
@@ -96,29 +102,48 @@ jobs:
             https://api.github.com/repos/${{ github.repository }}/pulls/${PR_NUMBER} \
             -d "{\"state\": \"closed\"}"
 
+        shell: bash
+
+      - name: Send mail to owner of PR
+        if: steps.commitlint.outputs.lint_status == 'fail'
+        run: |
+          AUTHOR_EMAIL=$(jq -r ".pull_request.user.email" "$GITHUB_EVENT_PATH")
+          if [ "$AUTHOR_EMAIL" = "null" ] || [ -z "$AUTHOR_EMAIL" ]; then
+            AUTHOR_EMAIL="sgupta54@dons.usfca.edu"
+          fi
+          echo "PR author email: $AUTHOR_EMAIL"
+          echo "PR_AUTHOR_EMAIL=$AUTHOR_EMAIL" >> $GITHUB_ENV
           
-          echo "PR closed. Sending email notification using FastMail..."
+          cat << 'EOF' > send_email.js
+          const nodemailer = require('nodemailer');
           
-          pip install --upgrade pip
-          pip install -r requirements.txt
+          async function main() {
+            let transporter = nodemailer.createTransport({
+              host: 'smtp.ethereal.email',
+              port: 587,
+              auth: {
+                user: 'nickolas27@ethereal.email',
+                pass: 'sBubMvmrcWCsPRdJ88'
+              }
+            });
+            
+            let info = await transporter.sendMail({
+              from: '"GitHub Actions" <no-reply@example.com>',
+              to: process.env.PR_AUTHOR_EMAIL,
+              subject: 'PR Closed - Conventional Commit Violation',
+              text: 'Your PR was closed because some commit messages do not follow the Conventional Commits specification. Please update your commit messages and try again.'
+            });
+            
+            console.log('Message sent: ' + info.messageId);
+            console.log('Preview URL: ' + nodemailer.getTestMessageUrl(info));
+          }
           
-          cat << 'EOF' > send_email.py
-          import sys
-          from asgiref.sync import async_to_sync
-          from src.mail import mail, create_message
-          
-          def main():
-              recipient = sys.argv[1] if len(sys.argv) > 1 else "sgupta54@dons.usfca.edu"
-              subject = "PR Closed - Conventional Commit Violation"
-              body = ("Your pull request was closed because some commit messages do not follow "
-                      "the Conventional Commits specification. Please update your commit messages and try again.")
-              message = create_message([recipient], subject, body)
-              async_to_sync(mail.send_message)(message)
-              print("Email sent to", recipient)
-          
-          if __name__ == '__main__':
-              main()
+          main().catch(console.error);
           EOF
           
-          python send_email.py "$AUTHOR_EMAIL"
+          npm init -y
+          npm install nodemailer
+          
+          node send_email.js
         shell: bash
+          
