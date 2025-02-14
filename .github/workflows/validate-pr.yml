@@ -76,13 +76,9 @@ jobs:
           fi
           echo "PR author email: $AUTHOR_EMAIL"
           
-          COMMENT_BODY="""
-            :warning: **PR Closed:** Your pull request contains commit messages that do not follow the Conventional Commits specification.
-            
-            Please update your commit messages to follow the format:
-            \`<type>(<scope>): <description>\`
-            Allowed types: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert.
-          """
+          COMMENT_BODY=":warning: **PR Closed:** Your pull request contains commit messages that do not follow the Conventional Commits specification.\n\n\
+          Please update your commit messages to follow the format:\n\`<type>(<scope>): <description>\`\n\
+          Allowed types: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert."
           
           curl -L \
             -X POST \
@@ -107,12 +103,11 @@ jobs:
       - name: Send mail to owner of PR
         if: steps.commitlint.outputs.lint_status == 'fail'
         run: |
-          AUTHOR_EMAIL=$(jq -r ".pull_request.user.email" "$GITHUB_EVENT_PATH")
+          AUTHOR_EMAIL = ${{ github.event.pull_request.user.email }}
           if [ "$AUTHOR_EMAIL" = "null" ] || [ -z "$AUTHOR_EMAIL" ]; then
             AUTHOR_EMAIL="sgupta54@dons.usfca.edu"
           fi
           echo "PR author email: $AUTHOR_EMAIL"
-          echo "PR_AUTHOR_EMAIL=$AUTHOR_EMAIL" >> $GITHUB_ENV
           
           cat << 'EOF' > send_email.js
           const nodemailer = require('nodemailer');
@@ -129,7 +124,7 @@ jobs:
             
             let info = await transporter.sendMail({
               from: '"GitHub Actions" <no-reply@example.com>',
-              to: process.env.PR_AUTHOR_EMAIL,
+              to: $AUTHOR_EMAIL,
               subject: 'PR Closed - Conventional Commit Violation',
               text: 'Your PR was closed because some commit messages do not follow the Conventional Commits specification. Please update your commit messages and try again.'
             });
