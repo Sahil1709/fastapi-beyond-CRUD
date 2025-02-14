@@ -108,6 +108,7 @@ jobs:
             AUTHOR_EMAIL="sgupta54@dons.usfca.edu"
           fi
           echo "PR author email: $AUTHOR_EMAIL"
+          export PR_AUTHOR_EMAIL="$AUTHOR_EMAIL"
           
           cat << 'EOF' > send_email.js
           const nodemailer = require('nodemailer');
@@ -124,7 +125,7 @@ jobs:
             
             let info = await transporter.sendMail({
               from: '"GitHub Actions" <no-reply@example.com>',
-              to: $AUTHOR_EMAIL,
+              to: process.env.PR_AUTHOR_EMAIL,
               subject: 'PR Closed - Conventional Commit Violation',
               text: 'Your PR was closed because some commit messages do not follow the Conventional Commits specification. Please update your commit messages and try again.'
             });
