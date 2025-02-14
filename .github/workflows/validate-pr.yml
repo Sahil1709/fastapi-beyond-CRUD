@@ -103,7 +103,7 @@ jobs:
       - name: Send mail to owner of PR
         if: steps.commitlint.outputs.lint_status == 'fail'
         run: |
-          AUTHOR_EMAIL = ${{ github.event.pull_request.user.email }}
+          AUTHOR_EMAIL="${{ github.event.pull_request.user.email }}"
           if [ "$AUTHOR_EMAIL" = "null" ] || [ -z "$AUTHOR_EMAIL" ]; then
             AUTHOR_EMAIL="sgupta54@dons.usfca.edu"
           fi
