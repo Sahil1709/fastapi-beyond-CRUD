@@ -5,6 +5,9 @@ on:
     - cron: '0 0 * * *'
   workflow_dispatch:
 
+env:
+  WEB_IMAGE: sahil1709/fastapi-beyon-crud-web
+
 jobs:
   build_and_test:
     name: Build and Test
@@ -25,7 +28,7 @@ jobs:
       - name: Build Container Image
         id: build_image
         run: |
-          IMAGE_NAME="${{ github.repository }}"
+          IMAGE_NAME="${{ env.WEB_IMAGE }}"
           IMAGE_TAG=$(date +'%Y%m%d%H%M%S')
           docker build -t $IMAGE_NAME:latest -t $IMAGE_NAME:$IMAGE_TAG .
           echo "::set-output name=image::$IMAGE_NAME"
