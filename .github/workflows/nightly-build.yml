@@ -36,7 +36,7 @@ jobs:
 
       - name: Run Tests in Container
         run: |
-          IMAGE_NAME="${{ github.repository }}"
+          IMAGE_NAME="${{ env.WEB_IMAGE }}"
           docker run --rm $IMAGE_NAME:latest sh -c "pytest"
 
   push_image:
@@ -60,7 +60,7 @@ jobs:
 
       - name: Push Container Image
         run: |
-          IMAGE_NAME="${{ github.repository }}"
+          IMAGE_NAME="${{ env.WEB_IMAGE }}"
           IMAGE_TAG=${{ needs.build_and_test.outputs.tag }}
           echo "Pushing image $IMAGE_NAME:latest and $IMAGE_NAME:$IMAGE_TAG"
           docker push $IMAGE_NAME:latest
@@ -80,7 +80,7 @@ jobs:
           fi
           echo "Recipient email: $RECIPIENT"
           export NOTIFY_EMAIL="$RECIPIENT"
-          export BUILD_REPO="${{ github.repository }}"
+          export BUILD_REPO="${{ env.WEB_IMAGE }}"
           
           cat << 'EOF' > send_failure_email.js
           const nodemailer = require('nodemailer');
