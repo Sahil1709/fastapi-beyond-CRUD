@@ -4,8 +4,6 @@ services:
   web:
     build: .
     image: sahil1709/fastapi-beyon-crud-web:latest
-    mem_limit: 2g
-    mem_reservation: 512m
     volumes:
       - .:/app
     environment: 
