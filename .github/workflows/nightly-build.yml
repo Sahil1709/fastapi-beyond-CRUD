@@ -35,7 +35,7 @@ jobs:
       - name: Run Tests in Container
         id: build_test
         run: |
-          docker exec web sh -c "pytest"
+          docker exec fastapi-beyond-crud-web-1 sh -c "pytest"
           
       - name: Bring Down Services
         run: docker compose -f compose.yml down
