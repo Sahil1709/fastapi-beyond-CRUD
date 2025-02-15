@@ -34,7 +34,7 @@ jobs:
       - name: Run Tests in Container
         run: |
           IMAGE_NAME="${{ github.repository }}"
-          docker run --rm $IMAGE_NAME:latest sh -c "npm test"
+          docker run --rm $IMAGE_NAME:latest sh -c "pytest"
 
   push_image:
     name: Push Container Image to Registry
