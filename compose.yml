@@ -3,6 +3,7 @@ version: "3.0"
 services:
   web:
     build: .
+    image: sahil1709/fastapi-beyon-crud-web:latest
     volumes:
       - .:/app
     environment: 
@@ -55,6 +56,7 @@ services:
 
   celery:
     build: .
+    image: sahil1709/fastapi-beyon-crud-celery:latest
 
     command: celery -A src.celery_tasks.c_app worker --loglevel=INFO
 

@@ -1,0 +1,110 @@
+name: Nightly Build
+
+on:
+  schedule:
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+
+jobs:
+  build_and_test:
+    name: Build and Test
+    runs-on: ubuntu-latest
+    outputs:
+      build_status: ${{ steps.build_test.outcome }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Images with Docker Compose
+        run: |
+          docker compose -f compose.yml build
+
+      - name: Start Services (Detached)
+        run: |
+          docker compose -f compose.yml up -d
+
+      - name: Wait for Services to Start
+        run: sleep 20
+
+      - name: Run Tests in Container
+        id: build_test
+        run: |
+          docker exec web sh -c "pytest"
+          
+      - name: Bring Down Services
+        run: docker compose -f compose.yml down
+
+  push_images:
+    name: Push Images to Registry
+    needs: build_and_test
+    if: ${{ needs.build_and_test.result == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Push Images via Docker Compose
+        run: |
+          docker compose -f compose.yml push
+
+  notify_failure:
+    name: Notify on Failure via Email
+    needs: build_and_test
+    if: ${{ needs.build_and_test.result == 'failure' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send Failure Notification Email
+        run: |
+          RECIPIENT="sgupta54@dons.usfca.edu"
+          echo "Recipient email: $RECIPIENT"
+          export NOTIFY_EMAIL="$RECIPIENT"
+          export BUILD_REPO="${{ github.repository }}"
+          
+          cat << 'EOF' > send_failure_email.js
+          const nodemailer = require('nodemailer');
+          
+          async function main() {
+            let transporter = nodemailer.createTransport({
+              host: 'smtp.ethereal.email',
+              port: 587,
+              auth: {
+                user: 'nickolas27@ethereal.email',
+                pass: 'sBubMvmrcWCsPRdJ88'
+              }
+            });
+            
+            let info = await transporter.sendMail({
+              from: '"Nightly Build" <no-reply@example.com>',
+              to: process.env.NOTIFY_EMAIL,
+              subject: 'Nightly Build Failed',
+              text: 'The nightly build for repository ' + process.env.BUILD_REPO + ' has failed. Please review the build logs for details.'
+            });
+            
+            console.log('Message sent: ' + info.messageId);
+            console.log('Preview URL: ' + nodemailer.getTestMessageUrl(info));
+          }
+          
+          main().catch(console.error);
+          EOF
+          
+          npm init -y
+          npm install nodemailer
+          
+          node send_failure_email.js
+        shell: bash
