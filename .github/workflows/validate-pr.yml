@@ -41,8 +41,8 @@ jobs:
           BASE_BRANCH="${{ github.event.pull_request.base.ref }}"
           echo "Base branch is: $BASE_BRANCH"
           
-          COMMITS=$(git log origin/${BASE_BRANCH}..HEAD --pretty=format:"%s")
-          echo "Commits in PR:"
+          COMMITS=$(git log origin/${BASE_BRANCH}..HEAD --pretty=format:"%s" | grep -v '^Merge ')
+          echo "Commits in PR (excluding merge commits):"
           echo "$COMMITS"
           
           REGEX='^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\([^)]+\))?: .+'
@@ -97,7 +97,6 @@ jobs:
             -H "Content-Type: application/json" \
             https://api.github.com/repos/${{ github.repository }}/pulls/${PR_NUMBER} \
             -d "{\"state\": \"closed\"}"
-
         shell: bash
 
       - name: Send mail to owner of PR
@@ -142,4 +141,10 @@ jobs:
           
           node send_email.js
         shell: bash
-          
+
+      - name: Fail Job if Commit Lint Fails
+        if: steps.commitlint.outputs.lint_status == 'fail'
+        run: |
+          echo "Commit lint failed. Exiting with error."
+          exit 1
+        shell: bash
