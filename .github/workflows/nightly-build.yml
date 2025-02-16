@@ -5,6 +5,10 @@ on:
     - cron: '0 0 * * *'
   workflow_dispatch:
 
+permissions:
+  contents: read
+  packages: write
+
 env:
   REGISTRY: ghcr.io
   WEB_IMAGE: sahil1709/fastapi-beyon-crud-web
@@ -46,27 +50,25 @@ jobs:
         run: |
           echo "tag=$(date +'%Y%m%d%H%M%S')" >> $GITHUB_OUTPUT
 
-      - name: Build and Push Web Image
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          tags: |
-            ${{ env.REGISTRY }}/${{ env.WEB_IMAGE }}:latest
-            ${{ env.REGISTRY }}/${{ env.WEB_IMAGE }}:${{ steps.set_tag.outputs.tag }}
-          push: false
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+      - name: Build and Tag Web Image
+        id: build_web
+        run: |
+          IMAGE_NAME="${{ env.REGISTRY }}/${{ env.WEB_IMAGE }}"
+          IMAGE_TAG=$(date +'%Y%m%d%H%M%S')
+          echo "Building web image: $IMAGE_NAME:latest and $IMAGE_NAME:$IMAGE_TAG"
+          docker build -t $IMAGE_NAME:latest -t $IMAGE_NAME:$IMAGE_TAG .
+          echo "::set-output name=web-image::$IMAGE_NAME"
+          echo "::set-output name=tag::$IMAGE_TAG"
 
-      - name: Build and Push Celery Image
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          tags: |
-            ${{ env.REGISTRY }}/${{ env.CELERY_IMAGE }}:latest
-            ${{ env.REGISTRY }}/${{ env.CELERY_IMAGE }}:${{ steps.set_tag.outputs.tag }}
-          push: false 
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+      - name: Build and Tag Celery Image
+        id: build_celery
+        run: |
+          IMAGE_NAME="${{ env.REGISTRY }}/${{ env.CELERY_IMAGE }}"
+          IMAGE_TAG=$(date +'%Y%m%d%H%M%S')
+          echo "Building celery image: $IMAGE_NAME:latest and $IMAGE_NAME:$IMAGE_TAG"
+          docker build -t $IMAGE_NAME:latest -t $IMAGE_NAME:$IMAGE_TAG .
+          echo "::set-output name=celery-image::$IMAGE_NAME"
+          echo "::set-output name=tag::$IMAGE_TAG"
 
   push_image:
     name: Push Container Image to Registry
