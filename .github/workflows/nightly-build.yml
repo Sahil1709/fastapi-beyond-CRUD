@@ -80,7 +80,7 @@ jobs:
 
       - name: Push Web Image
         run: |
-          IMAGE_NAME="${{ env.WEB_IMAGE }}"
+          IMAGE_NAME="ghcr.io/${{ needs.build_and_test.outputs.web-image }}"
           IMAGE_TAG=${{ needs.build_and_test.outputs.tag }}
           echo "Pushing image $IMAGE_NAME:latest and $IMAGE_NAME:$IMAGE_TAG"
           docker push $IMAGE_NAME:latest
@@ -88,7 +88,7 @@ jobs:
 
       - name: Push Celery Image
         run: |
-          IMAGE_NAME="${{ env.CELERY_IMAGE }}"
+          IMAGE_NAME="ghcr.io/${{ needs.build_and_test.outputs.celery-image }}"
           IMAGE_TAG=${{ needs.build_and_test.outputs.tag }}
           echo "Pushing image $IMAGE_NAME:latest and $IMAGE_NAME:$IMAGE_TAG"
           docker push $IMAGE_NAME:latest
