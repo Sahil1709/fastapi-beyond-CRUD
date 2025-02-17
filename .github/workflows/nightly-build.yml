@@ -72,7 +72,7 @@ jobs:
 
   push_image:
     name: Push Container Image to Registry
-    needs: build_and_test
+    needs: test_and_build
     if: ${{ success() }}
     runs-on: ubuntu-latest
     steps:
@@ -98,7 +98,7 @@ jobs:
           context: .
           tags: |
             ${{ env.REGISTRY }}/${{ env.WEB_IMAGE }}:latest
-            ${{ env.REGISTRY }}/${{ env.WEB_IMAGE }}:${{ needs.build_and_test.outputs.tag }}
+            ${{ env.REGISTRY }}/${{ env.WEB_IMAGE }}:${{ needs.test_and_build.outputs.tag }}
           push: true
 
       - name: Push Celery Image
@@ -107,13 +107,13 @@ jobs:
           context: .
           tags: |
             ${{ env.REGISTRY }}/${{ env.CELERY_IMAGE }}:latest
-            ${{ env.REGISTRY }}/${{ env.CELERY_IMAGE }}:${{ needs.build_and_test.outputs.tag }}
+            ${{ env.REGISTRY }}/${{ env.CELERY_IMAGE }}:${{ needs.test_and_build.outputs.tag }}
           push: true
 
   notify_failure:
     name: Notify on Failure via Email
-    needs: build_and_test
-    if: ${{ needs.build_and_test.result == 'failure' }}
+    needs: test_and_build
+    if: ${{ needs.test_and_build.result == 'failure' }}
     runs-on: ubuntu-latest
     steps:
       - name: Send Failure Notification Email
