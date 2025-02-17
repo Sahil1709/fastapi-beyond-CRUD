@@ -15,8 +15,8 @@ env:
   CELERY_IMAGE: sahil1709/fastapi-beyon-crud-celery
 
 jobs:
-  build_and_test:
-    name: Build and Test
+  test_and_build:
+    name: Test and Build Container Images
     runs-on: ubuntu-latest
     outputs:
       tag: ${{ steps.set_tag.outputs.tag }}
