@@ -14,7 +14,7 @@ jobs:
   verify-commits:
     runs-on: ubuntu-latest
 
-    # env:
+    # env: 
     #   DATABASE_URL: ${{ secrets.DATABASE_URL }}
     #   JWT_SECRET: ${{ secrets.JWT_SECRET }}
     #   JWT_ALGORITHM: ${{ secrets.JWT_ALGORITHM }}
